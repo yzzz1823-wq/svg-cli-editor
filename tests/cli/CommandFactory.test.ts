@@ -75,11 +75,15 @@ describe("CommandFactory", () => {
     expect(canvas.getHeight()).toBe(200);
   });
 
-  it("下划线命名的 canvas 命令同样有效", () => {
+  it("canvas 命令只改尺寸，保留已有图形", () => {
     const { factory, canvas } = createHarness();
+    add({ factory, canvas }, "add rect r1 x=0 y=0 width=1 height=1");
+
     factory.create(parse("canvas 300 400")).execute();
+
     expect(canvas.getWidth()).toBe(300);
     expect(canvas.getHeight()).toBe(400);
+    expect(canvas.findShape("r1")).not.toBeNull();
   });
 
   it("add 创建带几何与样式的矩形", () => {

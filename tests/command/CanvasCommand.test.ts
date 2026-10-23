@@ -6,7 +6,7 @@ import { Rect } from "../../src/shapes/Rect";
 import { RecordingObserver } from "../helpers/RecordingObserver";
 
 /**
- * CanvasCommand 也是文档级命令：按给定尺寸重建空画布。
+ * CanvasCommand 是文档级命令：只修改画布尺寸，保留画布上已有的全部图形。
  * 尺寸在构造时校验，非法输入不允许变成一条“执行到一半才失败”的命令。
  */
 describe("CanvasCommand", () => {
@@ -19,16 +19,22 @@ describe("CanvasCommand", () => {
     canvas.attach(observer);
   });
 
-  it("execute 清空内容并设置新尺寸", () => {
-    canvas.addShape(new Rect("r1", 0, 0, 10, 10));
+  it("execute 更新尺寸且保留原有图形", () => {
+    canvas.addShape(new Rect("r1", 10, 20, 100, 60));
     observer.reset();
 
     new CanvasCommand(canvas, 1024, 768).execute();
 
     expect(canvas.getWidth()).toBe(1024);
     expect(canvas.getHeight()).toBe(768);
-    expect(canvas.getRoot().childCount()).toBe(0);
-    expect(canvas.findShape("r1")).toBeNull();
+    expect(canvas.getRoot().childCount()).toBe(1);
+
+    const shape = canvas.findShape("r1");
+    expect(shape).toBeInstanceOf(Rect);
+    expect((shape as Rect).getX()).toBe(10);
+    expect((shape as Rect).getY()).toBe(20);
+    expect((shape as Rect).getWidth()).toBe(100);
+    expect((shape as Rect).getHeight()).toBe(60);
   });
 
   it("执行后广播 document 事件", () => {

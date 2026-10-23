@@ -58,6 +58,16 @@ export class Canvas extends CanvasSubject {
     this.notify(new CanvasEvent("document"));
   }
 
+  /**
+   * 仅修改画布尺寸（canvas 命令）：不触碰根节点及其子图形，
+   * 与 init() 的“清空并重置”形成明确区分。
+   */
+  resize(width: number, height: number): void {
+    this.width = width;
+    this.height = height;
+    this.notify(new CanvasEvent("document"));
+  }
+
   /** 递归查找节点；找不到返回 null。 */
   findShape(name: string): Shape | null {
     return this.findInContainer(this.root, name);

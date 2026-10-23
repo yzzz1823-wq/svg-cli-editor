@@ -3,7 +3,7 @@ import { CommandError } from "../errors/CommandError";
 import type { Canvas } from "../core/Canvas";
 
 /**
- * 设置画布尺寸：按给定宽高重建空画布，广播 document。
+ * 修改画布尺寸：只更新宽高并广播 document，保留画布上已有的全部图形。
  * 尺寸在构造时校验，非法值不会留下“执行到一半才失败”的命令对象。
  */
 export class CanvasCommand extends BaseCommand {
@@ -21,7 +21,7 @@ export class CanvasCommand extends BaseCommand {
   }
 
   execute(): void {
-    this.canvas.init(this.width, this.height);
+    this.canvas.resize(this.width, this.height);
   }
 
   undo(): void {

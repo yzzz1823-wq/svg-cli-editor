@@ -111,7 +111,7 @@ svg-cli-editor/
 - `CommandManager` 是唯一的执行入口：
   - `execute` 成功后把命令压入 undo 栈并清空 redo 栈；命令抛错时两个栈都不变（不留脏历史）。
   - 可撤销命令从 undo 栈弹出 → `undo()` → 压入 redo 栈；反向同理。
-  - **文档级命令**（`isUndoable() === false`，如 `init`/`canvas`/`save`/`read`）执行后清空两个栈并禁用撤销，因为它们替换的是整篇文档。
+  - **文档级命令**（`isUndoable() === false`，如 `init`/`canvas`/`save`/`read`）执行后清空两个栈并禁用撤销：它们改变的是文档级状态（整篇内容或画布尺寸），跨状态撤销在本项目中不做支持。
 - `RemoveShapeCommand` 额外记住“父容器 + 原下标”，`undo` 用 `insertAt` 精确放回原位；`UngroupCommand.undo()` 会重新 `groupShapes` 并把新组实例写回自身字段，保证“撤销→重做→再撤销”链条不断裂。
 
 ### 3.2 Composite —— 图形树
@@ -181,7 +181,7 @@ npx ts-node src/index.ts
 | 命令 | 说明 |
 | --- | --- |
 | `init [宽 高]` | 新建空文档（默认 800×600） |
-| `canvas <宽> <高>` | 新建指定尺寸文档 |
+| `canvas <宽> <高>` | 修改画布尺寸，保留已有图形 |
 | `add <类型> <名称> [键=值 ...]` | 添加图形：`rect`、`circle`、`ellipse`、`line`、`text` |
 | `remove <名称>` | 删除图形 |
 | `translate <名称> <dx> <dy>` | 平移图形（组会递归平移子节点） |

@@ -130,7 +130,7 @@ export class CliApp {
       [
         "可用命令：",
         "  init [宽 高]                     新建文档（默认 800×600）",
-        "  canvas <宽> <高>                 新建指定尺寸文档",
+        "  canvas <宽> <高>                 修改画布尺寸（保留已有图形）",
         "  add <类型> <名称> [键=值 ...]    添加图形（rect/circle/ellipse/line/text）",
         "  remove <名称>                    删除图形",
         "  translate <名称> <dx> <dy>       平移图形",
