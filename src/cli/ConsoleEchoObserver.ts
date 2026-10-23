@@ -1,6 +1,6 @@
 import type { CanvasEvent } from "../core/CanvasEvent";
 import type { CanvasObserver } from "../core/CanvasObserver";
-import type { OutputWriter } from "./OutputWriter";
+import type { OutputWriter } from "../io/OutputWriter";
 
 /**
  * Observer 模式中的具体观察者：把画布领域事件翻译成一行中文回显。
@@ -48,6 +48,9 @@ export class ConsoleEchoObserver implements CanvasObserver {
         return;
       case "ungroup":
         this.output.writeLine(`已解散 ${name}`);
+        return;
+      case "reorder":
+        this.output.writeLine(`已调整 ${name} 的层级`);
         return;
     }
   }

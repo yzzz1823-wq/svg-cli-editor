@@ -12,7 +12,7 @@ export class ScaleShapeCommand extends BaseCommand {
   ) {
     super("scale");
     if (!Number.isFinite(factor) || factor <= 0) {
-      throw new CommandError("缩放系数必须大于 0");
+      throw new CommandError("scale factor must be positive");
     }
   }
 

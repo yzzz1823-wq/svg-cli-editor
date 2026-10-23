@@ -23,7 +23,12 @@ export class SaveCommand extends BaseCommand {
   }
 
   execute(): void {
-    this.writer.writeText(this.path, this.exporter.exportDocument(this.canvas));
+    const content = this.exporter.exportDocument(this.canvas);
+    try {
+      this.writer.writeText(this.path, content);
+    } catch {
+      throw new CommandError(`cannot write file: ${this.path}`);
+    }
   }
 
   undo(): void {

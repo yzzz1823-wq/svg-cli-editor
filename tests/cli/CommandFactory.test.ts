@@ -128,10 +128,13 @@ describe("CommandFactory", () => {
     expect((canvas.findShape("r1") as Rect).getX()).toBe(0);
   });
 
-  it("group 与 ungroup 成对工作", () => {
+  it("group 与 ungroup 成对工作（非根级组才能解散）", () => {
     const { factory, canvas } = createHarness();
+    factory.create(parse("create g outer")).execute();
     add({ factory, canvas }, "add rect a x=0 y=0 width=1 height=1");
     add({ factory, canvas }, "add rect b x=0 y=0 width=1 height=1");
+    factory.create(parse("addto outer a")).execute();
+    factory.create(parse("addto outer b")).execute();
 
     const group = factory.create(parse("group g1 a b"));
     expect(group).toBeInstanceOf(GroupCommand);
@@ -143,13 +146,16 @@ describe("CommandFactory", () => {
     ungroup.execute();
     expect(canvas.findShape("g1")).toBeNull();
     expect(canvas.findShape("a")).not.toBeNull();
+    expect(canvas.findShape("a")?.getParent()?.getName()).toBe("outer");
   });
 
-  it("remove 生成可撤销的删除命令", () => {
+  it("delete 生成可撤销的删除命令，旧名 remove 静默兼容", () => {
     const { factory, canvas } = createHarness();
     add({ factory, canvas }, "add rect r1 x=0 y=0 width=1 height=1");
 
-    const command = factory.create(parse("remove r1"));
+    expect(factory.create(parse("remove r1"))).toBeInstanceOf(RemoveShapeCommand);
+
+    const command = factory.create(parse("delete r1"));
     expect(command).toBeInstanceOf(RemoveShapeCommand);
     command.execute();
     expect(canvas.findShape("r1")).toBeNull();

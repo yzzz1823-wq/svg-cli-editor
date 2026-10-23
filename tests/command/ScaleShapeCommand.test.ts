@@ -83,18 +83,18 @@ describe("ScaleShapeCommand", () => {
     expect(text.getContent()).toBe("Hello");
   });
 
-  it("系数为 0 时构造即抛 CommandError 并提示必须大于 0", () => {
+  it("系数为 0 时构造即抛 CommandError 并提示必须为正", () => {
     const rect = new Rect("r1", 0, 0, 1, 1);
 
     expect(() => new ScaleShapeCommand(canvas, rect, 0)).toThrow(CommandError);
-    expect(() => new ScaleShapeCommand(canvas, rect, 0)).toThrow(/必须大于 0/);
+    expect(() => new ScaleShapeCommand(canvas, rect, 0)).toThrow(/scale factor must be positive/);
   });
 
   it("负系数同样被拒绝", () => {
     const rect = new Rect("r1", 0, 0, 1, 1);
 
     expect(() => new ScaleShapeCommand(canvas, rect, -2)).toThrow(CommandError);
-    expect(() => new ScaleShapeCommand(canvas, rect, -2)).toThrow(/必须大于 0/);
+    expect(() => new ScaleShapeCommand(canvas, rect, -2)).toThrow(/scale factor must be positive/);
   });
 
   it("非有限系数被拒绝", () => {

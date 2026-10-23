@@ -11,7 +11,7 @@ import { DefaultSvgElementFactory } from "./parser/DefaultSvgElementFactory";
 import { SvgExportVisitor } from "./visitor/SvgExportVisitor";
 import { SvgParser } from "./parser/SvgParser";
 import { SvgReader } from "./parser/SvgReader";
-import type { OutputWriter } from "./cli/OutputWriter";
+import type { OutputWriter } from "./io/OutputWriter";
 import type { TextFileStore } from "./io/TextFileStore";
 import type { TextFileWriter } from "./io/TextFileWriter";
 

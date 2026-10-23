@@ -1,15 +1,25 @@
 import { TreeRenderVisitor } from "../visitor/TreeRenderVisitor";
+import { CliError } from "../errors/CliError";
 import type { CommandManager } from "../command/CommandManager";
 import type { CommandFactory } from "./CommandFactory";
 import type { Canvas } from "../core/Canvas";
 import type { CliParser } from "./CliParser";
 import type { ConsoleEchoObserver } from "./ConsoleEchoObserver";
 import type { LineReader } from "./LineReader";
-import type { OutputWriter } from "./OutputWriter";
+import type { OutputWriter } from "../io/OutputWriter";
 import type { ParsedInvocation } from "./ParsedInvocation";
 
 /** 输入结束时的兜底 reader：事件驱动的 REPL 不使用 run() 循环。 */
 const NULL_READER: LineReader = { readLine: () => null };
+
+/** 不要求文档已存在的命令：初始化、装载、帮助与退出。 */
+const DOCUMENT_FREE_VERBS: ReadonlySet<string> = new Set([
+  "init",
+  "read",
+  "help",
+  "exit",
+  "quit",
+]);
 
 export interface CliAppDependencies {
   readonly canvas: Canvas;
@@ -61,6 +71,10 @@ export class CliApp {
     if (invocation === null) {
       return true;
     }
+    if (!DOCUMENT_FREE_VERBS.has(invocation.verb) && !this.deps.canvas.hasDocument()) {
+      this.report(new CliError("no document. use 'init' or 'read' first"));
+      return true;
+    }
 
     switch (invocation.verb) {
       case "help":
@@ -78,6 +92,16 @@ export class CliApp {
         return true;
       case "redo":
         this.redo();
+        return true;
+      case "show":
+        this.showShape(invocation);
+        return true;
+      case "canvas":
+        if (invocation.args.length === 0) {
+          this.printCanvasSize();
+          return true;
+        }
+        this.runCommand(invocation);
         return true;
       default:
         this.runCommand(invocation);
@@ -108,6 +132,21 @@ export class CliApp {
     return echo === undefined ? task() : echo.silenced(task);
   }
 
+  /** 显示类命令：只读输出，不经过 CommandManager，因此不影响撤销栈。 */
+  private showShape(invocation: ParsedInvocation): void {
+    try {
+      this.deps.commandFactory.create(invocation).execute();
+    } catch (error) {
+      this.report(error);
+    }
+  }
+
+  private printCanvasSize(): void {
+    this.deps.output.writeLine(
+      `canvas size: ${this.deps.canvas.getWidth()}x${this.deps.canvas.getHeight()}`,
+    );
+  }
+
   private runCommand(invocation: ParsedInvocation): void {
     try {
       const command = this.deps.commandFactory.create(invocation);
@@ -119,10 +158,10 @@ export class CliApp {
 
   private report(error: unknown): void {
     if (error instanceof Error) {
-      this.deps.output.writeLine(`错误：${error.message}`);
+      this.deps.output.writeLine(`error: ${error.message}`);
       return;
     }
-    this.deps.output.writeLine(`错误：${String(error)}`);
+    this.deps.output.writeLine(`error: ${String(error)}`);
   }
 
   private printHelp(): void {
@@ -130,19 +169,24 @@ export class CliApp {
       [
         "可用命令：",
         "  init [宽 高]                     新建文档（默认 800×600）",
-        "  canvas <宽> <高>                 修改画布尺寸（保留已有图形）",
-        "  add <类型> <名称> [键=值 ...]    添加图形（rect/circle/ellipse/line/text）",
-        "  remove <名称>                    删除图形",
-        "  translate <名称> <dx> <dy>       平移图形",
+        "  canvas [宽 高]                   无参查看尺寸；带参调整画布（保留图形）",
+        "  create <类型> <名称> <参数...> [in <容器>]",
+        "                                   新建图形（rect/circle/ellipse/line/text/g）",
+        "  delete <名称>                    删除图形",
+        "  move <名称> <dx> <dy>            平移图形",
         "  scale <名称> <系数>              以原点为基准缩放（系数须 > 0）",
-        "  set <名称> <键=值 ...>           覆盖属性（几何/样式，名称不可改）",
+        "  set <名称> <属性> <值>           覆盖属性（几何/样式，名称不可改）",
         "  group <组名> <名称1> <名称2> ... 组合（至少两个节点）",
         "  ungroup <组名>                   解散分组",
+        "  addto <容器> <名称>              把图形移入指定分组末尾",
+        "  front <名称> | back <名称>       移到同级最前 / 最后",
+        "  show <名称>                      显示单个图形的属性明细",
+        "  tree                             打印文档树",
+        "  help                             显示本帮助",
         "  undo | redo                      撤销 / 重做",
         "  save <路径>                      保存为 SVG 文件",
         "  read <路径>                      读取 SVG 文件",
-        "  tree                             打印文档树",
-        "  help | exit                      帮助 / 退出",
+        "  exit                             退出",
       ].join("\n"),
     );
   }

@@ -1,7 +1,8 @@
 import { CommandError } from "../errors/CommandError";
+import { SvgParseError } from "../errors/SvgParseError";
 import { BaseCommand } from "./BaseCommand";
 import type { Canvas } from "../core/Canvas";
-import type { OutputWriter } from "../cli/OutputWriter";
+import type { OutputWriter } from "../io/OutputWriter";
 import type { SvgReader } from "../parser/SvgReader";
 
 /** 文档级命令：读取 SVG 文件并替换当前画布内容，缺 id 的提示通过写入器回显。 */
@@ -23,7 +24,15 @@ export class ReadCommand extends BaseCommand {
   }
 
   execute(): void {
-    const document = this.reader.read(this.path);
+    let document;
+    try {
+      document = this.reader.read(this.path);
+    } catch (error) {
+      if (error instanceof SvgParseError) {
+        throw error;
+      }
+      throw new CommandError(`cannot read file: ${this.path}`);
+    }
     this.canvas.load(document.root, document.width, document.height);
     for (const warning of document.warnings) {
       this.output.writeLine(`提示：${warning}`);

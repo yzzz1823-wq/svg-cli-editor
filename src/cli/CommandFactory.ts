@@ -1,6 +1,8 @@
 import { CliError } from "../errors/CliError";
 import { SvgParseError } from "../errors/SvgParseError";
 import { AddShapeCommand } from "../command/AddShapeCommand";
+import { AddToContainerCommand } from "../command/AddToContainerCommand";
+import { BringToFrontCommand } from "../command/BringToFrontCommand";
 import { CanvasCommand } from "../command/CanvasCommand";
 import { GroupCommand } from "../command/GroupCommand";
 import { InitCommand } from "../command/InitCommand";
@@ -8,7 +10,9 @@ import { ReadCommand } from "../command/ReadCommand";
 import { RemoveShapeCommand } from "../command/RemoveShapeCommand";
 import { SaveCommand } from "../command/SaveCommand";
 import { ScaleShapeCommand } from "../command/ScaleShapeCommand";
+import { SendToBackCommand } from "../command/SendToBackCommand";
 import { SetAttributeCommand } from "../command/SetAttributeCommand";
+import { ShowCommand } from "../command/ShowCommand";
 import { TranslateShapeCommand } from "../command/TranslateShapeCommand";
 import { UngroupCommand } from "../command/UngroupCommand";
 import { DEFAULT_SHAPE_STYLE } from "../core/ShapeStyle";
@@ -16,7 +20,7 @@ import { Container } from "../core/Container";
 import type { AttributePatch } from "../core/AttributePatch";
 import type { Command } from "../command/Command";
 import type { Canvas } from "../core/Canvas";
-import type { OutputWriter } from "./OutputWriter";
+import type { OutputWriter } from "../io/OutputWriter";
 import type { ParsedInvocation } from "./ParsedInvocation";
 import type { SvgElementFactory } from "../parser/SvgElementFactory";
 import type { SvgExportVisitor } from "../visitor/SvgExportVisitor";
@@ -61,16 +65,36 @@ export class CommandFactory {
         );
       case "add":
         return this.createAdd(invocation.args);
+      case "create":
+        return this.createShape(invocation.args);
+      case "delete":
       case "remove":
-        this.requireArity(invocation, 1, "remove <名称>");
+        this.requireArity(invocation, 1, `${invocation.verb} <名称>`);
         return new RemoveShapeCommand(this.deps.canvas, this.requireShape(invocation.args[0]));
-      case "translate": {
-        this.requireArity(invocation, 3, "translate <名称> <dx> <dy>");
+      case "translate":
+      case "move": {
+        this.requireArity(invocation, 3, `${invocation.verb} <名称> <dx> <dy>`);
         // 先校验语法（数字），再校验语义（图形是否存在），错误提示更贴近输入。
         const dx = this.number(invocation.args[1] ?? "", "dx");
         const dy = this.number(invocation.args[2] ?? "", "dy");
         return new TranslateShapeCommand(this.deps.canvas, this.requireShape(invocation.args[0]), dx, dy);
       }
+      case "addto":
+        this.requireArity(invocation, 2, "addto <容器> <名称>");
+        return new AddToContainerCommand(
+          this.deps.canvas,
+          this.requireShape(invocation.args[1]),
+          this.requireContainer(invocation.args[0]),
+        );
+      case "front":
+        this.requireArity(invocation, 1, "front <名称>");
+        return new BringToFrontCommand(this.deps.canvas, this.requireShape(invocation.args[0]));
+      case "back":
+        this.requireArity(invocation, 1, "back <名称>");
+        return new SendToBackCommand(this.deps.canvas, this.requireShape(invocation.args[0]));
+      case "show":
+        this.requireArity(invocation, 1, "show <名称>");
+        return new ShowCommand(this.requireShape(invocation.args[0]), this.deps.output);
       case "scale": {
         this.requireArity(invocation, 2, "scale <名称> <系数>");
         const factor = this.number(invocation.args[1] ?? "", "缩放系数");
@@ -80,9 +104,14 @@ export class CommandFactory {
         return this.createSet(invocation.args);
       case "group":
         return this.createGroup(invocation.args);
-      case "ungroup":
+      case "ungroup": {
         this.requireArity(invocation, 1, "ungroup <组名>");
-        return new UngroupCommand(this.deps.canvas, this.requireGroup(invocation.args[0]));
+        const group = this.requireGroup(invocation.args[0]);
+        if (group.getParent() === this.deps.canvas.getRoot()) {
+          throw new CliError(`cannot ungroup top-level container: ${group.getName()}`);
+        }
+        return new UngroupCommand(this.deps.canvas, group);
+      }
       case "save":
         this.requireArity(invocation, 1, "save <路径>");
         return new SaveCommand(
@@ -169,9 +198,182 @@ export class CommandFactory {
     }
   }
 
+  /**
+   * create 的规范化位置参数语法：
+   * create <类型> <名称> <各类型位置参数 ...> [in <容器名称>]
+   * 可选 in 只接受已存在且为分组（g）的容器。
+   */
+  private createShape(args: readonly string[]): Command {
+    if (args.length < 2) {
+      throw new CliError("用法：create <类型> <名称> [参数 ...] [in <容器名称>]");
+    }
+    const type = args[0] ?? "";
+    const name = args[1] ?? "";
+    this.assertShapeType(type);
+
+    let params = args.slice(2);
+    let parent: Container | null = null;
+    if (params.length >= 2 && params[params.length - 2] === "in") {
+      const containerName = params[params.length - 1] ?? "";
+      parent = this.requireContainer(containerName);
+      params = params.slice(0, params.length - 2);
+    }
+
+    let attributes: Record<string, string> = {};
+    let style: ShapeStyle = { ...DEFAULT_SHAPE_STYLE };
+    let textContent = "";
+
+    switch (type) {
+      case "rect": {
+        if (params.length < 4 || params.length > 5) {
+          throw new CliError("用法：create rect <名称> <x> <y> <宽> <高> [fill]");
+        }
+        const [x, y, width, height, fill] = params;
+        attributes = {
+          x: this.numericText(x, "x"),
+          y: this.numericText(y, "y"),
+          width: this.numericText(width, "宽度"),
+          height: this.numericText(height, "高度"),
+        };
+        if (fill !== undefined) {
+          style = { ...style, fill };
+        }
+        break;
+      }
+      case "circle": {
+        if (params.length < 3 || params.length > 4) {
+          throw new CliError("用法：create circle <名称> <cx> <cy> <半径> [fill]");
+        }
+        const [cx, cy, radius, fill] = params;
+        attributes = {
+          cx: this.numericText(cx, "cx"),
+          cy: this.numericText(cy, "cy"),
+          r: this.numericText(radius, "半径"),
+        };
+        if (fill !== undefined) {
+          style = { ...style, fill };
+        }
+        break;
+      }
+      case "ellipse": {
+        if (params.length < 4 || params.length > 5) {
+          throw new CliError("用法：create ellipse <名称> <cx> <cy> <rx> <ry> [fill]");
+        }
+        const [cx, cy, rx, ry, fill] = params;
+        attributes = {
+          cx: this.numericText(cx, "cx"),
+          cy: this.numericText(cy, "cy"),
+          rx: this.numericText(rx, "rx"),
+          ry: this.numericText(ry, "ry"),
+        };
+        if (fill !== undefined) {
+          style = { ...style, fill };
+        }
+        break;
+      }
+      case "line": {
+        if (params.length < 4 || params.length > 5) {
+          throw new CliError("用法：create line <名称> <x1> <y1> <x2> <y2> [stroke]");
+        }
+        const [x1, y1, x2, y2, stroke] = params;
+        attributes = {
+          x1: this.numericText(x1, "x1"),
+          y1: this.numericText(y1, "y1"),
+          x2: this.numericText(x2, "x2"),
+          y2: this.numericText(y2, "y2"),
+        };
+        if (stroke !== undefined) {
+          style = { ...style, stroke: stroke === "none" ? null : stroke };
+        }
+        break;
+      }
+      case "text": {
+        if (params.length !== 3) {
+          throw new CliError('用法：create text <名称> <x> <y> "内容"');
+        }
+        const [x, y, content] = params;
+        attributes = {
+          x: this.numericText(x, "x"),
+          y: this.numericText(y, "y"),
+        };
+        textContent = content ?? "";
+        break;
+      }
+      case "g": {
+        if (params.length !== 0) {
+          throw new CliError("用法：create g <名称>");
+        }
+        break;
+      }
+    }
+
+    try {
+      const shape = this.deps.shapeFactory.create(type, name, attributes, style, textContent);
+      return new AddShapeCommand(this.deps.canvas, shape, parent);
+    } catch (error) {
+      if (error instanceof SvgParseError) {
+        throw new CliError(`无法创建 ${type}：${error.message}`);
+      }
+      throw error;
+    }
+  }
+
+  /** 只接受白名单属性；越界属性按规范报 unknown attribute。 */
+  private positionalPatch(attribute: string, raw: string): AttributePatch {
+    switch (attribute) {
+      case "x":
+        return { x: this.number(raw, "x") };
+      case "y":
+        return { y: this.number(raw, "y") };
+      case "width":
+        return { width: this.number(raw, "width") };
+      case "height":
+        return { height: this.number(raw, "height") };
+      case "cx":
+        return { cx: this.number(raw, "cx") };
+      case "cy":
+        return { cy: this.number(raw, "cy") };
+      case "r":
+        return { radius: this.number(raw, "r") };
+      case "rx":
+        return { rx: this.number(raw, "rx") };
+      case "ry":
+        return { ry: this.number(raw, "ry") };
+      case "x1":
+        return { x1: this.number(raw, "x1") };
+      case "y1":
+        return { y1: this.number(raw, "y1") };
+      case "x2":
+        return { x2: this.number(raw, "x2") };
+      case "y2":
+        return { y2: this.number(raw, "y2") };
+      case "text":
+        return { text: raw };
+      case "fill":
+        return { fill: raw };
+      case "stroke":
+        return { stroke: raw === "none" ? null : raw };
+      case "stroke-width":
+        return { strokeWidth: this.number(raw, "stroke-width") };
+      default:
+        throw new CliError(`unknown attribute: ${attribute}`);
+    }
+  }
+
   private createSet(args: readonly string[]): Command {
     if (args.length < 2) {
-      throw new CliError("用法：set <名称> <属性=值> ...（至少一个属性）");
+      throw new CliError("用法：set <名称> <属性> <值>（或旧式 set <名称> <属性>=<值> ...）");
+    }
+    // 新语法 set <名称> <属性> <值>；含 "=" 的第二参数沿用旧的键值对语法。
+    if (!(args[1] ?? "").includes("=")) {
+      if (args.length !== 3) {
+        throw new CliError("用法：set <名称> <属性> <值>");
+      }
+      return new SetAttributeCommand(
+        this.deps.canvas,
+        this.requireShape(args[0]),
+        this.positionalPatch(args[1] ?? "", args[2] ?? ""),
+      );
     }
     const shape = this.requireShape(args[0]);
     return new SetAttributeCommand(this.deps.canvas, shape, this.buildPatch(args.slice(1)));
@@ -249,13 +451,37 @@ export class CommandFactory {
     return new GroupCommand(this.deps.canvas, children, groupName);
   }
 
+  /** create 的类型白名单：与 SvgElementFactory 的标签名保持一致。 */
+  private assertShapeType(type: string): void {
+    switch (type) {
+      case "rect":
+      case "circle":
+      case "ellipse":
+      case "line":
+      case "text":
+      case "g":
+        return;
+      default:
+        throw new CliError(`unknown shape type: ${type} (is the plugin loaded?)`);
+    }
+  }
+
+  /** 校验位置参数是数字，并原样返回给形状工厂解析。 */
+  private numericText(raw: string | undefined, label: string): string {
+    if (raw === undefined) {
+      throw new CliError(`缺少参数：${label}`);
+    }
+    this.number(raw, label);
+    return raw;
+  }
+
   private requireShape(name: string | undefined): Shape {
     if (name === undefined || name === "") {
       throw new CliError("缺少图形名称");
     }
     const shape = this.deps.canvas.findShape(name);
     if (shape === null) {
-      throw new CliError(`找不到图形：${name}`);
+      throw new CliError(`no such shape: ${name}`);
     }
     return shape;
   }
@@ -263,7 +489,22 @@ export class CommandFactory {
   private requireGroup(name: string | undefined): Container {
     const shape = this.requireShape(name);
     if (!(shape instanceof Container)) {
-      throw new CliError(`"${shape.getName()}" 不是分组，无法解散`);
+      throw new CliError(`cannot ungroup composite shape: ${shape.getName()}`);
+    }
+    return shape;
+  }
+
+  /** addto / in 的目标：必须是已存在的分组（Composite 角色），而不是叶子图形。 */
+  private requireContainer(name: string | undefined): Container {
+    if (name === undefined || name === "") {
+      throw new CliError("缺少图形名称");
+    }
+    const shape = this.deps.canvas.findShape(name);
+    if (shape === null) {
+      throw new CliError(`no such container: ${name}`);
+    }
+    if (!(shape instanceof Container)) {
+      throw new CliError(`not a container: ${name}`);
     }
     return shape;
   }

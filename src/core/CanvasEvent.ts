@@ -9,6 +9,7 @@ export type CanvasOperation =
   | "set"
   | "group"
   | "ungroup"
+  | "reorder"
   | "document";
 
 /**

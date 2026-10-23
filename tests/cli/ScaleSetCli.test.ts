@@ -80,7 +80,7 @@ describe("scale 与 set 的 CLI 映射", () => {
     canvas.addShape(new Rect("r1", 0, 0, 1, 1));
 
     expect(() => factory.create(parse("scale r1 0"))).toThrow(CommandError);
-    expect(() => factory.create(parse("scale r1 -1"))).toThrow(/必须大于 0/);
+    expect(() => factory.create(parse("scale r1 -1"))).toThrow(/scale factor must be positive/);
   });
 
   it("set 支持简写别名 w/h 与 strokeWidth", () => {

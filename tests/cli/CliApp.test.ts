@@ -34,6 +34,9 @@ const createHarness = (
   const shapeFactory = new DefaultSvgElementFactory();
   const reader = new SvgReader(new SvgParser(shapeFactory), new FakeTextFileStore(files));
 
+  // 在挂观察者之前初始化，模拟用户先输入 init 的初始状态。
+  canvas.init(800, 600);
+
   canvas.attach(new ConsoleEchoObserver(output));
 
   const commandFactory = new CommandFactory({
@@ -131,13 +134,20 @@ describe("CliApp", () => {
     expect(output.all()).toBe("");
   });
 
-  it("help 列出可用命令", () => {
+  it("help 只列出规范命令，不含旧式别名", () => {
     const { app, output } = createHarness();
     app.executeLine("help");
-    expect(output.all()).toContain("add");
-    expect(output.all()).toContain("undo");
-    expect(output.all()).toContain("save");
-    expect(output.all()).toContain("tree");
+    const help = output.all();
+    for (const verb of [
+      "init", "canvas", "create", "delete", "move", "scale", "set", "group",
+      "ungroup", "addto", "front", "back", "show", "tree", "help", "undo",
+      "redo", "save", "read", "exit",
+    ]) {
+      expect(help).toMatch(new RegExp(`\\b${verb}\\b`));
+    }
+    expect(help).not.toContain("add <");
+    expect(help).not.toContain("translate");
+    expect(help).not.toContain("remove");
   });
 
   it("exit 结束会话", () => {

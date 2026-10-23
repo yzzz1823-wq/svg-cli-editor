@@ -1,4 +1,4 @@
-import type { OutputWriter } from "../../src/cli/OutputWriter";
+import type { OutputWriter } from "../../src/io/OutputWriter";
 
 /** 收集所有输出行，便于断言 CLI 回显。 */
 export class FakeOutputWriter implements OutputWriter {
