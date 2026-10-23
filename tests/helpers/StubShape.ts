@@ -1,4 +1,5 @@
 import { Shape } from "../../src/core/Shape";
+import type { AttributePatch } from "../../src/core/AttributePatch";
 import type { ShapeStyle } from "../../src/core/ShapeStyle";
 import { TEST_STYLE } from "./TestStyle";
 
@@ -23,6 +24,19 @@ export class StubShape extends Shape {
   translate(dx: number, dy: number): void {
     this.offsetX += dx;
     this.offsetY += dy;
+  }
+
+  scale(factor: number): void {
+    this.offsetX *= factor;
+    this.offsetY *= factor;
+  }
+
+  protected applyGeometry(_patch: AttributePatch): void {
+    // 测试替身没有几何字段。
+  }
+
+  protected captureGeometry(_target: AttributePatch): void {
+    // 测试替身没有几何字段。
   }
 
   getTag(): string {

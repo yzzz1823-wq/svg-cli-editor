@@ -1,4 +1,5 @@
 import { Container } from "../core/Container";
+import type { AttributePatch } from "../core/AttributePatch";
 import { DEFAULT_SHAPE_STYLE } from "../core/ShapeStyle";
 import type { ShapeStyle } from "../core/ShapeStyle";
 import type { SvgAttributes } from "../core/SvgAttributes";
@@ -26,5 +27,20 @@ export class Group extends Container {
     for (const child of this.getChildren()) {
       child.translate(dx, dy);
     }
+  }
+
+  scale(factor: number): void {
+    for (const child of this.getChildren()) {
+      child.scale(factor);
+    }
+  }
+
+  /** 组本身没有几何属性，只接受样式覆盖。 */
+  protected applyGeometry(patch: AttributePatch): void {
+    this.assertSupported(patch, []);
+  }
+
+  protected captureGeometry(_target: AttributePatch): void {
+    // 组没有几何字段需要快照。
   }
 }

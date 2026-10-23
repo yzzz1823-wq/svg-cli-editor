@@ -7,10 +7,13 @@ import { InitCommand } from "../command/InitCommand";
 import { ReadCommand } from "../command/ReadCommand";
 import { RemoveShapeCommand } from "../command/RemoveShapeCommand";
 import { SaveCommand } from "../command/SaveCommand";
+import { ScaleShapeCommand } from "../command/ScaleShapeCommand";
+import { SetAttributeCommand } from "../command/SetAttributeCommand";
 import { TranslateShapeCommand } from "../command/TranslateShapeCommand";
 import { UngroupCommand } from "../command/UngroupCommand";
 import { DEFAULT_SHAPE_STYLE } from "../core/ShapeStyle";
 import { Container } from "../core/Container";
+import type { AttributePatch } from "../core/AttributePatch";
 import type { Command } from "../command/Command";
 import type { Canvas } from "../core/Canvas";
 import type { OutputWriter } from "./OutputWriter";
@@ -68,6 +71,13 @@ export class CommandFactory {
         const dy = this.number(invocation.args[2] ?? "", "dy");
         return new TranslateShapeCommand(this.deps.canvas, this.requireShape(invocation.args[0]), dx, dy);
       }
+      case "scale": {
+        this.requireArity(invocation, 2, "scale <名称> <系数>");
+        const factor = this.number(invocation.args[1] ?? "", "缩放系数");
+        return new ScaleShapeCommand(this.deps.canvas, this.requireShape(invocation.args[0]), factor);
+      }
+      case "set":
+        return this.createSet(invocation.args);
       case "group":
         return this.createGroup(invocation.args);
       case "ungroup":
@@ -156,6 +166,77 @@ export class CommandFactory {
         throw new CliError(`无法创建 ${type}：${error.message}`);
       }
       throw error;
+    }
+  }
+
+  private createSet(args: readonly string[]): Command {
+    if (args.length < 2) {
+      throw new CliError("用法：set <名称> <属性=值> ...（至少一个属性）");
+    }
+    const shape = this.requireShape(args[0]);
+    return new SetAttributeCommand(this.deps.canvas, shape, this.buildPatch(args.slice(1)));
+  }
+
+  /** 把 CLI 的 键=值 列表翻译成类型化补丁；别名在这里归一化。 */
+  private buildPatch(pairs: readonly string[]): AttributePatch {
+    let patch: AttributePatch = {};
+    for (const pair of pairs) {
+      const separator = pair.indexOf("=");
+      if (separator <= 0) {
+        throw new CliError(`属性格式应为 键=值：${pair}`);
+      }
+      const key = pair.slice(0, separator);
+      const raw = pair.slice(separator + 1);
+      patch = { ...patch, ...this.patchEntry(key, raw) };
+    }
+    return patch;
+  }
+
+  private patchEntry(key: string, raw: string): AttributePatch {
+    switch (key) {
+      case "x":
+        return { x: this.number(raw, "x") };
+      case "y":
+        return { y: this.number(raw, "y") };
+      case "width":
+      case "w":
+        return { width: this.number(raw, key) };
+      case "height":
+      case "h":
+        return { height: this.number(raw, key) };
+      case "cx":
+        return { cx: this.number(raw, "cx") };
+      case "cy":
+        return { cy: this.number(raw, "cy") };
+      case "radius":
+      case "r":
+        return { radius: this.number(raw, key) };
+      case "rx":
+        return { rx: this.number(raw, "rx") };
+      case "ry":
+        return { ry: this.number(raw, "ry") };
+      case "x1":
+        return { x1: this.number(raw, "x1") };
+      case "y1":
+        return { y1: this.number(raw, "y1") };
+      case "x2":
+        return { x2: this.number(raw, "x2") };
+      case "y2":
+        return { y2: this.number(raw, "y2") };
+      case "text":
+        return { text: raw };
+      case "fill":
+        return { fill: raw };
+      case "stroke":
+        return { stroke: raw === "none" ? null : raw };
+      case "stroke-width":
+      case "strokeWidth":
+        return { strokeWidth: this.number(raw, key) };
+      case "name":
+      case "id":
+        throw new CliError("不能修改图形名称（name/id 不可变）");
+      default:
+        throw new CliError(`不支持的属性：${key}`);
     }
   }
 

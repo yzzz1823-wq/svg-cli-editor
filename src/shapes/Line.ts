@@ -1,5 +1,6 @@
 import { DEFAULT_SHAPE_STYLE } from "../core/ShapeStyle";
 import { Shape } from "../core/Shape";
+import type { AttributePatch } from "../core/AttributePatch";
 import type { ShapeStyle } from "../core/ShapeStyle";
 import type { SvgAttributes } from "../core/SvgAttributes";
 import type { ShapeVisitor } from "../visitor/ShapeVisitor";
@@ -56,5 +57,35 @@ export class Line extends Shape {
     this.y1 += dy;
     this.x2 += dx;
     this.y2 += dy;
+  }
+
+  scale(factor: number): void {
+    this.x1 *= factor;
+    this.y1 *= factor;
+    this.x2 *= factor;
+    this.y2 *= factor;
+  }
+
+  protected applyGeometry(patch: AttributePatch): void {
+    this.assertSupported(patch, ["x1", "y1", "x2", "y2"]);
+    if (patch.x1 !== undefined) {
+      this.x1 = patch.x1;
+    }
+    if (patch.y1 !== undefined) {
+      this.y1 = patch.y1;
+    }
+    if (patch.x2 !== undefined) {
+      this.x2 = patch.x2;
+    }
+    if (patch.y2 !== undefined) {
+      this.y2 = patch.y2;
+    }
+  }
+
+  protected captureGeometry(target: AttributePatch): void {
+    target.x1 = this.x1;
+    target.y1 = this.y1;
+    target.x2 = this.x2;
+    target.y2 = this.y2;
   }
 }

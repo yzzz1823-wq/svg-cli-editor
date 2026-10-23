@@ -134,6 +134,8 @@ export class CliApp {
         "  add <类型> <名称> [键=值 ...]    添加图形（rect/circle/ellipse/line/text）",
         "  remove <名称>                    删除图形",
         "  translate <名称> <dx> <dy>       平移图形",
+        "  scale <名称> <系数>              以原点为基准缩放（系数须 > 0）",
+        "  set <名称> <键=值 ...>           覆盖属性（几何/样式，名称不可改）",
         "  group <组名> <名称1> <名称2> ... 组合（至少两个节点）",
         "  ungroup <组名>                   解散分组",
         "  undo | redo                      撤销 / 重做",

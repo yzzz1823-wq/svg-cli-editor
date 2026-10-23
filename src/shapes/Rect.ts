@@ -1,5 +1,6 @@
 import { DEFAULT_SHAPE_STYLE } from "../core/ShapeStyle";
 import { Shape } from "../core/Shape";
+import type { AttributePatch } from "../core/AttributePatch";
 import type { ShapeStyle } from "../core/ShapeStyle";
 import type { SvgAttributes } from "../core/SvgAttributes";
 import type { ShapeVisitor } from "../visitor/ShapeVisitor";
@@ -54,5 +55,35 @@ export class Rect extends Shape {
   translate(dx: number, dy: number): void {
     this.x += dx;
     this.y += dy;
+  }
+
+  scale(factor: number): void {
+    this.x *= factor;
+    this.y *= factor;
+    this.width *= factor;
+    this.height *= factor;
+  }
+
+  protected applyGeometry(patch: AttributePatch): void {
+    this.assertSupported(patch, ["x", "y", "width", "height"]);
+    if (patch.x !== undefined) {
+      this.x = patch.x;
+    }
+    if (patch.y !== undefined) {
+      this.y = patch.y;
+    }
+    if (patch.width !== undefined) {
+      this.width = patch.width;
+    }
+    if (patch.height !== undefined) {
+      this.height = patch.height;
+    }
+  }
+
+  protected captureGeometry(target: AttributePatch): void {
+    target.x = this.x;
+    target.y = this.y;
+    target.width = this.width;
+    target.height = this.height;
   }
 }

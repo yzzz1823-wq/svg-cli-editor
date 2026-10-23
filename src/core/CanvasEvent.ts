@@ -1,7 +1,15 @@
 import type { Shape } from "./Shape";
 
 /** 画布上发生的变化类型。 */
-export type CanvasOperation = "add" | "remove" | "move" | "group" | "ungroup" | "document";
+export type CanvasOperation =
+  | "add"
+  | "remove"
+  | "move"
+  | "scale"
+  | "set"
+  | "group"
+  | "ungroup"
+  | "document";
 
 /**
  * 广播给观察者的事件（不可变值对象）。

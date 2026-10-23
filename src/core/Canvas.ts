@@ -2,6 +2,7 @@ import { CanvasEvent } from "./CanvasEvent";
 import { CanvasSubject } from "./CanvasSubject";
 import { CommandError } from "../errors/CommandError";
 import { Container } from "./Container";
+import type { AttributePatch } from "./AttributePatch";
 import type { ContainerFactory } from "./ContainerFactory";
 import type { Shape } from "./Shape";
 
@@ -94,6 +95,24 @@ export class Canvas extends CanvasSubject {
     }
     shape.translate(dx, dy);
     this.notify(new CanvasEvent("move", shape));
+  }
+
+  /** 以原点为基准缩放图形；组合节点会递归缩放后代。 */
+  scaleShape(shape: Shape, factor: number): void {
+    if (shape === this.root) {
+      throw new CommandError("不能缩放文档根节点");
+    }
+    shape.scale(factor);
+    this.notify(new CanvasEvent("scale", shape));
+  }
+
+  /** 以属性补丁绝对覆盖图形（样式 + 几何），供 set 命令使用。 */
+  setShapeAttributes(shape: Shape, patch: AttributePatch): void {
+    if (shape === this.root) {
+      throw new CommandError("不能修改文档根节点");
+    }
+    shape.applyPatch(patch);
+    this.notify(new CanvasEvent("set", shape));
   }
 
   /**

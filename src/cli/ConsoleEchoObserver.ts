@@ -2,64 +2,64 @@ import type { CanvasEvent } from "../core/CanvasEvent";
 import type { CanvasObserver } from "../core/CanvasObserver";
 import type { OutputWriter } from "./OutputWriter";
 
-/** CLI 终端回显：订阅 Canvas 事件并把变更打印出来（Observer 模式的观察者）。 */
+/**
+ * Observer 模式中的具体观察者：把画布领域事件翻译成一行中文回显。
+ *
+ * 撤销/重做期间由 CliApp 调用 silenced() 临时静音，
+ * 避免内部变更与“已撤销/已重做”提示重复。
+ */
 export class ConsoleEchoObserver implements CanvasObserver {
-  private readonly output: OutputWriter;
-  private silenceDepth = 0;
+  private silent = false;
 
-  constructor(output: OutputWriter) {
-    this.output = output;
-  }
-
-  /**
-   * 在 task 执行期间抑制回显：撤销/重做内部的 Canvas 变更不应重复打印，
-   * 只由调用方回显“已撤销/已重做”。
-   */
-  silenced<T>(task: () => T): T {
-    this.silenceDepth += 1;
-    try {
-      return task();
-    } finally {
-      this.silenceDepth -= 1;
-    }
-  }
+  constructor(private readonly output: OutputWriter) {}
 
   update(event: CanvasEvent): void {
-    if (this.silenceDepth > 0) {
+    if (this.silent) {
+      return;
+    }
+    if (event.operation === "document") {
+      this.output.writeLine("文档已更新");
       return;
     }
     const shape = event.shape;
+    if (shape === null) {
+      return;
+    }
+    const name = shape.getName();
+    const tag = shape.getTag();
     switch (event.operation) {
       case "add":
-        this.describe(shape, (label) => `已添加 ${label}`, true);
+        this.output.writeLine(`已添加 ${name} (${tag})`);
         return;
       case "remove":
-        this.describe(shape, (label) => `已移除 ${label}`, true);
+        this.output.writeLine(`已移除 ${name} (${tag})`);
         return;
       case "move":
-        this.describe(shape, (name) => `已移动 ${name}`, false);
+        this.output.writeLine(`已移动 ${name}`);
+        return;
+      case "scale":
+        this.output.writeLine(`已缩放 ${name}`);
+        return;
+      case "set":
+        this.output.writeLine(`已修改 ${name}`);
         return;
       case "group":
-        this.describe(shape, (name) => `已建组 ${name}`, false);
+        this.output.writeLine(`已建组 ${name}`);
         return;
       case "ungroup":
-        this.describe(shape, (name) => `已解散 ${name}`, false);
-        return;
-      case "document":
-        this.output.writeLine("文档已更新");
+        this.output.writeLine(`已解散 ${name}`);
         return;
     }
   }
 
-  private describe(
-    shape: CanvasEvent["shape"],
-    render: (label: string) => string,
-    withTag: boolean,
-  ): void {
-    if (shape === null) {
-      return;
+  /** 在静音状态下执行任务，结束后恢复原状态（即使抛错）。 */
+  silenced<T>(task: () => T): T {
+    const previous = this.silent;
+    this.silent = true;
+    try {
+      return task();
+    } finally {
+      this.silent = previous;
     }
-    const label = withTag ? `${shape.getName()} (${shape.getTag()})` : shape.getName();
-    this.output.writeLine(render(label));
   }
 }

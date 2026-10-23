@@ -1,5 +1,6 @@
 import { DEFAULT_SHAPE_STYLE } from "../core/ShapeStyle";
 import { Shape } from "../core/Shape";
+import type { AttributePatch } from "../core/AttributePatch";
 import type { ShapeStyle } from "../core/ShapeStyle";
 import type { SvgAttributes } from "../core/SvgAttributes";
 import type { ShapeVisitor } from "../visitor/ShapeVisitor";
@@ -47,5 +48,30 @@ export class Text extends Shape {
   translate(dx: number, dy: number): void {
     this.x += dx;
     this.y += dy;
+  }
+
+  /** 文本没有可缩放的尺寸，按约定只缩放坐标。 */
+  scale(factor: number): void {
+    this.x *= factor;
+    this.y *= factor;
+  }
+
+  protected applyGeometry(patch: AttributePatch): void {
+    this.assertSupported(patch, ["x", "y", "text"]);
+    if (patch.x !== undefined) {
+      this.x = patch.x;
+    }
+    if (patch.y !== undefined) {
+      this.y = patch.y;
+    }
+    if (patch.text !== undefined) {
+      this.content = patch.text;
+    }
+  }
+
+  protected captureGeometry(target: AttributePatch): void {
+    target.x = this.x;
+    target.y = this.y;
+    target.text = this.content;
   }
 }

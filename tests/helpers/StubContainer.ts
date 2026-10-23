@@ -1,4 +1,5 @@
 import { Container } from "../../src/core/Container";
+import type { AttributePatch } from "../../src/core/AttributePatch";
 import type { ShapeStyle } from "../../src/core/ShapeStyle";
 import { TEST_STYLE } from "./TestStyle";
 
@@ -16,6 +17,20 @@ export class StubContainer extends Container {
     for (const child of this.getChildren()) {
       child.translate(dx, dy);
     }
+  }
+
+  scale(factor: number): void {
+    for (const child of this.getChildren()) {
+      child.scale(factor);
+    }
+  }
+
+  protected applyGeometry(_patch: AttributePatch): void {
+    // 容器没有几何字段。
+  }
+
+  protected captureGeometry(_target: AttributePatch): void {
+    // 容器没有几何字段。
   }
 
   getTag(): string {

@@ -23,6 +23,7 @@ svg-cli-editor/
 │  │  ├─ CanvasSubject.ts         # 观察者注册/通知
 │  │  ├─ CanvasObserver.ts        # interface update(event)
 │  │  ├─ CanvasEvent.ts           # 事件对象（operation + shape）
+│  │  ├─ AttributePatch.ts        # set 命令与撤销快照共用的属性补丁
 │  │  ├─ ContainerFactory.ts      # interface：创建根容器（避免 Canvas 依赖具体 Group）
 │  │  ├─ DefaultContainerFactory.ts
 │  │  ├─ ShapeStyle.ts            # 填充 / 描边样式（不可变值对象）
@@ -36,6 +37,7 @@ svg-cli-editor/
 │  │  ├─ HistoryStack.ts          # 有界 LIFO 栈
 │  │  ├─ CommandManager.ts        # undo/redo 栈的编排者
 │  │  ├─ AddShapeCommand.ts  RemoveShapeCommand.ts  TranslateShapeCommand.ts
+│  │  ├─ ScaleShapeCommand.ts  SetAttributeCommand.ts
 │  │  ├─ GroupCommand.ts  UngroupCommand.ts
 │  │  ├─ InitCommand.ts  CanvasCommand.ts      # 文档级命令（不可撤销）
 │  │  └─ SaveCommand.ts  ReadCommand.ts        # 文档级命令（不可撤销）
@@ -183,6 +185,8 @@ npx ts-node src/index.ts
 | `add <类型> <名称> [键=值 ...]` | 添加图形：`rect`、`circle`、`ellipse`、`line`、`text` |
 | `remove <名称>` | 删除图形 |
 | `translate <名称> <dx> <dy>` | 平移图形（组会递归平移子节点） |
+| `scale <名称> <系数>` | 以原点为基准缩放，系数须 > 0（组会递归缩放子节点） |
+| `set <名称> <键=值 ...>` | 以补丁绝对覆盖几何/样式属性，至少一项 |
 | `group <组名> <名称1> <名称2> ...` | 组合，至少两个节点 |
 | `ungroup <组名>` | 解散分组 |
 | `undo` / `redo` | 撤销 / 重做 |
@@ -192,6 +196,8 @@ npx ts-node src/index.ts
 | `help` / `exit` | 帮助 / 退出 |
 
 几何属性直接写成 `键=值`；`fill`、`stroke`、`stroke-width` 会进入样式，`text=...` 作为文本内容，其余键作为额外 SVG 属性原样输出。
+
+`scale` 按倍数缩放全部几何坐标与尺寸（文本只缩放坐标，组递归作用于后代），撤销时用倒数还原，因此系数必须大于 0。`set` 是绝对覆盖而非相对修改：只改给出的键，其余保持原值；`w`/`h` 分别等价于 `width`/`height`，`strokeWidth` 与 `stroke-width` 等价，`stroke=none` 表示取消描边；`name`/`id` 不可修改，图形不支持的属性会报错而不是被静默忽略。撤销时命令写回执行前的完整快照，与属性顺序无关。
 
 ### 示例会话
 
@@ -204,6 +210,10 @@ svg> group g1 r1 c1
 已建组 g1
 svg> translate g1 10 10
 已移动 g1
+svg> scale r1 2
+已缩放 r1
+svg> set r1 fill=green stroke=none
+已修改 r1
 svg> tree
 svg 800x600
 └─ g1 [g]
