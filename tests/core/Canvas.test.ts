@@ -97,7 +97,8 @@ describe("Canvas", () => {
       canvas.addShape(child, group);
 
       expect(child.getParent()).toBe(group);
-      expect(group.getChildren()).toEqual([child]);
+      expect(group.childCount()).toBe(3);
+      expect(group.getChildren()[2]).toBe(child);
       expect(canvas.findShape("c")).toBe(child);
     });
 
@@ -127,9 +128,12 @@ describe("Canvas", () => {
   describe("查找与删除", () => {
     it("findShape 能递归找到嵌套在组内的图形", () => {
       const a = add("a");
+      const b = add("b");
+      const group = canvas.groupShapes([a, b], "g");
 
       expect(canvas.findShape("a")).toBe(a);
-      expect(canvas.findShape("g-a")).not.toBe(a);
+      expect(canvas.findShape("b")).toBe(b);
+      expect(canvas.getRoot().getChildren()).toEqual([group]);
     });
 
     it("findShape 找不到时返回 null", () => {
@@ -284,7 +288,8 @@ describe("Canvas", () => {
 
       canvas.ungroupContainer(group);
 
-      expect(canvas.getRoot().getChildren()).toEqual([a, b, c]);
+      // 组占据首个子节点 a 的位置；未被选中的 b 保持在组之后。
+      expect(canvas.getRoot().getChildren()).toEqual([a, c, b]);
       expect(group.childCount()).toBe(0);
     });
 
